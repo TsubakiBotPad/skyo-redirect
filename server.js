@@ -37,70 +37,80 @@ app.get('/', (req, res) => {res.redirect('/index.html');});
 
 // Skyo lookup
 failedSearchURL = "https://github.com/TsubakiBotPad/pad-cogs/wiki/skyo-404";
-
 app.get('/skyo/:subDungeonId', function(req, res) {
-  var sdid = parseInt(req.params.subDungeonId);
-  SubDungeonLink.findOne({subDungeonId: sdid}).exec(async function (err, sdLink) {
-    link = sdLink?sdLink.skyozoraLink:await findLink(sdid);
-    res.redirect(link || failedSearchURL);
+  sdid = parseInt(req.params.subDungeonId);
+  if (isNaN(sdid)) return res.redirect(failedSearchURL);
+  SubDungeonLink.findOne({subDungeonId: sdid})
+  .exec(async function (err, link) {
+    if (link == null) {
+      try {
+        link = await findLink(sdid);
+      } catch (error) {return res.redirect(failedSearchURL);}
+      res.redirect(link || failedSearchURL);
+      SubDungeonLink.create({
+        subDungeonId: sdid, 
+        skyozoraLink: link, 
+        timestamp: Date.now(),
+      });
+    } else {
+      res.redirect(link.skyozoraLink || failedSearchURL);
+    }
   });
 });
 
 function findLink(sdid) {
   return new Promise((resolve, reject) => {
-    /**
-     * Always resolves into either a valid Skyozora link or null.
-     */
     con.query(`SELECT dungeons.name_ja AS dgName, sub_dungeons.name_ja AS sdName
                FROM sub_dungeons 
                     JOIN dungeons ON sub_dungeons.dungeon_id = dungeons.dungeon_id
-               WHERE sub_dungeon_id = ?`, [sdid || 0],
+               WHERE sub_dungeon_id = ?`, [sdid],
       function (err, rows) {
         if (err) throw err;
-        if (rows.length == 0) return resolve(null);
+        if (rows.length == 0) return reject('Invalid sdid');
 
-        // Build the possible links (With and without conditions)
-        var cleanDgName = rows[0].dgName.replace('/', '／');
-        var cleanSdName = rows[0].sdName.replace('/', '／');
-        var cleanerDgName = cleanDgName.replace(/【.*】/, '');
-        var cleanerSdName = cleanSdName.replace(/【.*】/, '');
-        var links = [
-          `${cleanDgName}/${cleanSdName}`,
-          `${cleanDgName}/${cleanerSdName}`,
-          `${cleanerDgName}/${cleanSdName}`,
-          `${cleanerDgName}/${cleanerSdName}`,
-        ].map(path => encodeURI("https://pad.skyozora.com/stage/"+path));
-
-        // This can resolve the promise before checking every link.
-        if ([...Set(links)].length == 1) resolve(links[0]);
         function validateLink(link) {
-          return new Promise((res, rej) => {
+          return new Promise((resolve, reject) => {
             https.get(link, function(res) {
-              if (res.statusCode == 200) {
-                rej(link);
-                resolve(link);
-              } else {
-                res();
-                links.splice(links.indexOf(link), 1);
-                resolve(links[0]);
-              }
+              if (res.statusCode == 200) reject(link);
+              else resolve();
             });
           })
         }
 
-        // This waits until all promises have completed in order to cache the right link.
-        Promise.all(links.map(validateLink)).then((results) => {
-          SubDungeonLink.create({
-            subDungeonId: sdid, 
-            skyozoraLink: null, 
-            timestamp: Date.now(),
-          });
-        }).catch((link) => {
-          SubDungeonLink.create({
-            subDungeonId: sdid, 
-            skyozoraLink: link, 
-            timestamp: Date.now(),
-          });
+        var cleanDgName = rows[0].dgName.replace('/', '／');
+        var cleanSdName = rows[0].sdName.replace('/', '／');
+        var cleanerDgName = cleanDgName.replace(/【.*】/, '');
+        var cleanerSdName = cleanSdName.replace(/【.*】/, '');
+        var links = [...new Set([
+          `${cleanDgName}/${cleanSdName}`,
+          `${cleanerDgName}/${cleanSdName}`,
+          `${cleanDgName}/${cleanerSdName}`,
+          `${cleanerDgName}/${cleanerSdName}`,
+        ].map(path => encodeURI("https://pad.skyozora.com/stage/"+path));
+
+        // This can resolve the outer promise before checking every link.
+        if ([...new Set(links)].length == 1) resolve(links[0]);
+        links.map(async function (link) {
+          https.get(link, function(res) {
+            if (res.statusCode == 200) {
+              SubDungeonLink.create({
+                subDungeonId: sdid, 
+                skyozoraLink: link, 
+                timestamp: Date.now(),
+              });
+              resolve(link);
+            } else {
+              links.splice(links.indexOf(link), 1);
+              if (links.length == 1) resolve(links[0]);
+              else if (links.length == 0) {
+                SubDungeonLink.create({
+                  subDungeonId: sdid, 
+                  skyozoraLink: null, 
+                  timestamp: Date.now(),
+                });
+              }
+            }
+          })
         });
       }
     );
