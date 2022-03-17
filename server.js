@@ -86,13 +86,31 @@ function findLink(sdid) {
           `${cleanerDgName}/${cleanSdName}`,
           `${cleanDgName}/${cleanerSdName}`,
           `${cleanerDgName}/${cleanerSdName}`,
-        ])].map(path => validateLink(encodeURI("https://pad.skyozora.com/stage/"+path)));
+        ].map(path => encodeURI("https://pad.skyozora.com/stage/"+path));
 
-        Promise.all(links).then((results) => {
-          console.error("No valid link found for " + sdid)
-          reject(null);
-        }).catch((link) => {
-          resolve(link);
+        // This can resolve the outer promise before checking every link.
+        if ([...new Set(links)].length == 1) resolve(links[0]);
+        links.map(async function (link) {
+          https.get(link, function(res) {
+            if (res.statusCode == 200) {
+              SubDungeonLink.create({
+                subDungeonId: sdid, 
+                skyozoraLink: link, 
+                timestamp: Date.now(),
+              });
+              resolve(link);
+            } else {
+              links.splice(links.indexOf(link), 1);
+              if (links.length == 1) resolve(links[0]);
+              else if (links.length == 0) {
+                SubDungeonLink.create({
+                  subDungeonId: sdid, 
+                  skyozoraLink: null, 
+                  timestamp: Date.now(),
+                });
+              }
+            }
+          })
         });
       }
     );
