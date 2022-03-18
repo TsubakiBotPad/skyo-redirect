@@ -12,7 +12,7 @@ const app = express();
 app.use(parser.json());
 app.use(parser.urlencoded({extended: true})); 
 
-const port = 8081;
+const port = 80;
 
 // Set up MongoDB
 mongoose.connect('mongodb://127.0.0.1/tsubaki', {useNewUrlParser: true});
@@ -37,54 +37,37 @@ app.get('/', (req, res) => {res.redirect('/index.html');});
 
 // Skyo lookup
 failedSearchURL = "https://github.com/TsubakiBotPad/pad-cogs/wiki/skyo-404";
+
 app.get('/skyo/:subDungeonId', function(req, res) {
-  sdid = parseInt(req.params.subDungeonId);
-  if (isNaN(sdid)) return res.redirect(failedSearchURL);
-  SubDungeonLink.findOne({subDungeonId: sdid})
-  .exec(async function (err, link) {
-    if (link == null) {
-      try {
-        link = await findLink(sdid);
-      } catch (error) {return res.redirect(failedSearchURL);}
-      res.redirect(link || failedSearchURL);
-      SubDungeonLink.create({
-        subDungeonId: sdid, 
-        skyozoraLink: link, 
-        timestamp: Date.now(),
-      });
-    } else {
-      res.redirect(link.skyozoraLink || failedSearchURL);
-    }
+  var sdid = parseInt(req.params.subDungeonId);
+  SubDungeonLink.findOne({subDungeonId: sdid}).exec(async function (err, sdLink) {
+    link = sdLink?sdLink.skyozoraLink:await findLink(sdid);
+    res.redirect(link || failedSearchURL);
   });
 });
 
 function findLink(sdid) {
   return new Promise((resolve, reject) => {
+    /**
+     * Always resolves into either a valid Skyozora link or null.
+     */
     con.query(`SELECT dungeons.name_ja AS dgName, sub_dungeons.name_ja AS sdName
                FROM sub_dungeons 
                     JOIN dungeons ON sub_dungeons.dungeon_id = dungeons.dungeon_id
-               WHERE sub_dungeon_id = ?`, [sdid],
+               WHERE sub_dungeon_id = ?`, [sdid || 0],
       function (err, rows) {
         if (err) throw err;
-        if (rows.length == 0) return reject('Invalid sdid');
+        if (rows.length == 0) return resolve(null);
 
-        function validateLink(link) {
-          return new Promise((resolve, reject) => {
-            https.get(link, function(res) {
-              if (res.statusCode == 200) reject(link);
-              else resolve();
-            });
-          })
-        }
-
+        // Build the possible links (With and without conditions)
         var cleanDgName = rows[0].dgName.replace('/', '／');
         var cleanSdName = rows[0].sdName.replace('/', '／');
         var cleanerDgName = cleanDgName.replace(/【.*】/, '');
         var cleanerSdName = cleanSdName.replace(/【.*】/, '');
-        var links = [...new Set([
+        var links = [
           `${cleanDgName}/${cleanSdName}`,
-          `${cleanerDgName}/${cleanSdName}`,
           `${cleanDgName}/${cleanerSdName}`,
+          `${cleanerDgName}/${cleanSdName}`,
           `${cleanerDgName}/${cleanerSdName}`,
         ].map(path => encodeURI("https://pad.skyozora.com/stage/"+path));
 
