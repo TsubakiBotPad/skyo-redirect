@@ -4,15 +4,15 @@
 
 const express = require('express');
 const parser = require('body-parser');
+const http = require("http");
 const https = require("https");
 const mongoose = require('mongoose');
 const mysql = require('mysql');
+const fs = require('fs');
 
 const app = express();
 app.use(parser.json());
 app.use(parser.urlencoded({extended: true})); 
-
-const port = 80;
 
 // Set up MongoDB
 mongoose.connect('mongodb://127.0.0.1/tsubaki', {useNewUrlParser: true});
@@ -160,6 +160,10 @@ function findDungeonLink(dgid) {
   });
 }
 
-
 // Start Server
-app.listen(port, () => console.log(`App listening at port ${port}`));
+http.createServer(app).listen(80, () => console.log(`HTTP listening at port 80`));
+
+https.createServer({
+  key: fs.readFileSync(__dirname + '/certs/selfsigned.key'),
+  cert: fs.readFileSync(__dirname + '/certs/selfsigned.crt')
+}, app).listen(443, () => console.log(`HTTPS listening at port 443`));
