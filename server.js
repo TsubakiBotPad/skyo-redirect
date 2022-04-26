@@ -43,7 +43,7 @@ app.get('/', (req, res) => {res.redirect('/index.html');});
 // Skyo lookup
 failedSearchURL = "https://github.com/TsubakiBotPad/pad-cogs/wiki/skyo-404";
 
-app.get('/skyo/:dgid', function(req, res) {
+app.get('/:dgid', function(req, res) {
   var sdid = parseInt(req.params.dgid);
   if (sdid < 10000) {
     // Dungeon
