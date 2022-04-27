@@ -163,7 +163,8 @@ function findDungeonLink(dgid) {
 // Start Server
 http.createServer(app).listen(80, () => console.log(`HTTP listening at port 80`));
 
+certs = require('./certs.json');
 https.createServer({
-  key: fs.readFileSync(__dirname + '/certs/selfsigned.key'),
-  cert: fs.readFileSync(__dirname + '/certs/selfsigned.crt')
+  key: fs.readFileSync(certs['key']),
+  cert: fs.readFileSync(certs['cert'])
 }, app).listen(443, () => console.log(`HTTPS listening at port 443`));
