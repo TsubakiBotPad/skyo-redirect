@@ -43,9 +43,11 @@ app.get('/', (req, res) => {res.redirect('/index.html');});
 // Skyo lookup
 failedSearchURL = "https://github.com/TsubakiBotPad/pad-cogs/wiki/skyo-404";
 
-app.get('/:dgid', function(req, res) {
-  var sdid = parseInt(req.params.dgid);
-  if (sdid < 10000) {
+app.get('/:sdid', function(req, res) {
+  var sdid = parseInt(req.params.sdid);
+  if (isNaN(sdid)) {
+    res.end()
+  } else if (sdid < 10000) {
     // Dungeon
     DungeonLink.findOne({dungeonId: sdid}).exec(async function (err, dLink) {
       link = dLink?dLink.skyozoraLink:await findDungeonLink(sdid);
@@ -59,6 +61,20 @@ app.get('/:dgid', function(req, res) {
     });
   }
 });
+
+
+function getPossibilities(link, functions) {
+  if (functions.length == 0) {return [link];}
+  let f = functions[0];
+  let rest = functions.slice(1)
+  return getPossibilities(link, rest).concat(getPossibilities(f(link), rest));
+}
+
+formattingFunctions = [
+  link => link.replace(/【.*】/, ''),
+  link => link.replace(/ /, ''),
+]
+
 
 function findSubDungeonLink(sdid) {
   return new Promise((resolve, reject) => {
@@ -74,16 +90,12 @@ function findSubDungeonLink(sdid) {
         if (rows.length == 0) return resolve(null);
 
         // Build the possible links (With and without conditions)
-        var cleanDgName = rows[0].dgName.replace('/', '／');
-        var cleanSdName = rows[0].sdName.replace('/', '／');
-        var cleanerDgName = cleanDgName.replace(/【.*】/, '');
-        var cleanerSdName = cleanSdName.replace(/【.*】/, '');
-        var links = [
-          `${cleanDgName}/${cleanSdName}`,
-          `${cleanDgName}/${cleanerSdName}`,
-          `${cleanerDgName}/${cleanSdName}`,
-          `${cleanerDgName}/${cleanerSdName}`,
-        ].map(path => encodeURI("https://pad.skyozora.com/stage/"+path));
+        var links = []
+        getPossibilities(rows[0].dgName.replace('/', '／'), formattingFunctions).forEach(
+          (d) => getPossibilities(rows[0].sdName.replace('/', '／'), formattingFunctions).forEach(
+            (s) => links.push(`${d}/${s}`)))
+        console.log(links)
+        links = links.map(path => encodeURI("https://pad.skyozora.com/stage/"+path));
 
         // This can resolve the outer promise before checking every link.
         if ([...new Set(links)].length == 1) resolve(links[0]);
@@ -126,11 +138,9 @@ function findDungeonLink(dgid) {
         if (rows.length == 0) return resolve(null);
 
         // Build the possible links (With and without conditions)
-        var cleanDgName = rows[0].dgName.replace('/', '／');
-        var cleanerDgName = cleanDgName.replace(/【.*】/, '');
-        var links = [`${cleanDgName}`, `${cleanerDgName}`]
+        var links = getPossibilities(rows[0].dgName.replace('/', '／'), formattingFunctions)
                     .map(path => encodeURI("https://pad.skyozora.com/stage/"+path));
-
+        console.log(links)
         // This can resolve the outer promise before checking every link.
         if ([...new Set(links)].length == 1) resolve(links[0]);
         links.map(async function (link) {
