@@ -101,7 +101,12 @@ function findSubDungeonLink(sdid) {
         // This can resolve the outer promise before checking every link.
         if ([...new Set(links)].length == 1) resolve(links[0]);
         links.map(async function (link) {
-          https.get(link, function(res) {
+          var options = {
+            host: "pad.skyozora.com",
+            path: link.substring(24),
+            method: "HEAD"
+          }
+          https.request(options, function(res) {
             if (res.statusCode == 200) {
               SubDungeonLink.create({
                 subDungeonId: sdid, 
@@ -144,7 +149,12 @@ function findDungeonLink(dgid) {
         // This can resolve the outer promise before checking every link.
         if ([...new Set(links)].length == 1) resolve(links[0]);
         links.map(async function (link) {
-          https.get(link, function(res) {
+          var options = {
+            host: "pad.skyozora.com",
+            path: link.substring(24),
+            method: "HEAD"
+          }
+          https.request(options, function(res) {
             if (res.statusCode == 200) {
               DungeonLink.create({
                 dungeonId: dgid, 
@@ -173,9 +183,9 @@ function findDungeonLink(dgid) {
 // Start Server
 http.createServer(app).listen(80, () => console.log(`HTTP listening at port 80`));
 
-https.globalAgent.options.ca = require('ssl-root-cas').create();
-certs = require('./certs.json');
-https.createServer({
-  key: fs.readFileSync(certs['key']),
-  cert: fs.readFileSync(certs['cert'])
-}, app).listen(443, () => console.log(`HTTPS listening at port 443`));
+// https.globalAgent.options.ca = require('ssl-root-cas').create();
+// certs = require('./certs.json');
+// https.createServer({
+//   key: fs.readFileSync(certs['key']),
+//   cert: fs.readFileSync(certs['cert'])
+// }, app).listen(443, () => console.log(`HTTPS listening at port 443`));
