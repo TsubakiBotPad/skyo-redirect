@@ -14,6 +14,8 @@ const app = express();
 app.use(parser.json());
 app.use(parser.urlencoded({extended: true})); 
 
+process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0;
+
 // Set up MongoDB
 mongoose.connect('mongodb://127.0.0.1/tsubaki', {useNewUrlParser: true});
 mongoose.connection.on('error', console.error.bind(console, 'MongoDB connection error:'));
@@ -94,7 +96,6 @@ function findSubDungeonLink(sdid) {
         getPossibilities(rows[0].dgName.replace('/', '／'), formattingFunctions).forEach(
           (d) => getPossibilities(rows[0].sdName.replace('/', '／'), formattingFunctions).forEach(
             (s) => links.push(`${d}/${s}`)))
-        console.log(links)
         links = links.map(path => encodeURI("https://pad.skyozora.com/stage/"+path));
 
         // This can resolve the outer promise before checking every link.
@@ -140,7 +141,6 @@ function findDungeonLink(dgid) {
         // Build the possible links (With and without conditions)
         var links = getPossibilities(rows[0].dgName.replace('/', '／'), formattingFunctions)
                     .map(path => encodeURI("https://pad.skyozora.com/stage/"+path));
-        console.log(links)
         // This can resolve the outer promise before checking every link.
         if ([...new Set(links)].length == 1) resolve(links[0]);
         links.map(async function (link) {
@@ -173,6 +173,7 @@ function findDungeonLink(dgid) {
 // Start Server
 http.createServer(app).listen(80, () => console.log(`HTTP listening at port 80`));
 
+https.globalAgent.options.ca = require('ssl-root-cas').create();
 certs = require('./certs.json');
 https.createServer({
   key: fs.readFileSync(certs['key']),
