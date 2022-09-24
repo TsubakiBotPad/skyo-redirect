@@ -101,12 +101,7 @@ function findSubDungeonLink(sdid) {
         // This can resolve the outer promise before checking every link.
         if ([...new Set(links)].length == 1) resolve(links[0]);
         links.map(async function (link) {
-          var options = {
-            host: "pad.skyozora.com",
-            path: link.substring(24),
-            method: "HEAD"
-          }
-          https.request(options, function(res) {
+          https.get(link, function(res) {
             if (res.statusCode == 200) {
               SubDungeonLink.create({
                 subDungeonId: sdid, 
@@ -149,12 +144,7 @@ function findDungeonLink(dgid) {
         // This can resolve the outer promise before checking every link.
         if ([...new Set(links)].length == 1) resolve(links[0]);
         links.map(async function (link) {
-          var options = {
-            host: "pad.skyozora.com",
-            path: link.substring(24),
-            method: "HEAD"
-          }
-          https.request(options, function(res) {
+          https.get(link, function(res) {
             if (res.statusCode == 200) {
               DungeonLink.create({
                 dungeonId: dgid, 
