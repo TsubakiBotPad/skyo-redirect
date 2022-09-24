@@ -101,6 +101,7 @@ function findSubDungeonLink(sdid) {
         // This can resolve the outer promise before checking every link.
         if ([...new Set(links)].length == 1) resolve(links[0]);
         links.map(async function (link) {
+          // Don't use a HEAD request!  It doesn't work for some reason!
           https.get(link, function(res) {
             if (res.statusCode == 200) {
               SubDungeonLink.create({
